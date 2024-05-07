@@ -63,7 +63,7 @@ class WireGuardNotification @Inject constructor(@ApplicationContext private val 
                 PendingIntent.getActivity(
                     context,
                     0,
-                    notificationIntent,
+                    notificationIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK),
                     PendingIntent.FLAG_IMMUTABLE,
                 )
             }

@@ -28,11 +28,11 @@ fun PinLockScreen(navController: NavController, appViewModel: AppViewModel) {
         onPinCorrect = {
             // pin is correct, navigate or hide pin lock
             if (WireGuardAutoTunnel.isRunningOnAndroidTv()) {
-                navController.navigate(Screen.Main.route)
+                navController.navigate(Screen.Main.route) { popUpTo(Screen.Main.route) { inclusive = true } }
             } else {
                 val isPopped = navController.popBackStack()
                 if (!isPopped) {
-                    navController.navigate(Screen.Main.route)
+                    navController.navigate(Screen.Main.route) { popUpTo(Screen.Main.route) { inclusive = true } }
                 }
             }
 

@@ -37,7 +37,11 @@ fun BottomNavBar(navController: NavController, bottomNavItems: List<BottomNavIte
 
             NavigationBarItem(
                 selected = selected,
-                onClick = { navController.navigate(item.route) },
+                onClick = {
+                    if (!selected) {
+                        navController.navigate(item.route) { popUpTo(Screen.Main.route) { inclusive = (item.route == Screen.Main.route) } }
+                    }
+                },
                 label = {
                     Text(
                         text = item.name,

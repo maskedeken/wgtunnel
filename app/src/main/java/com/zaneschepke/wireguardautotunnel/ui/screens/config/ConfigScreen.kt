@@ -323,7 +323,7 @@ fun ConfigScreen(
                         when (it) {
                             is Result.Success -> {
                                 appViewModel.showSnackbarMessage(it.data.message)
-                                navController.navigate(Screen.Main.route)
+                                navController.navigate(Screen.Main.route) { popUpTo(Screen.Main.route) { inclusive = true } }
                             }
 
                             is Result.Error -> appViewModel.showSnackbarMessage(it.error.message)
