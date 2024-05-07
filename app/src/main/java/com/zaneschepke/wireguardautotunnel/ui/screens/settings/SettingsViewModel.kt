@@ -162,18 +162,12 @@ constructor(
         )
     }
 
-    fun onToggleAmnezia() = viewModelScope.launch {
-        if(uiState.value.settings.isKernelEnabled) {
-            saveKernelMode(false)
-        }
-        saveAmneziaMode(!uiState.value.settings.isAmneziaEnabled)
-    }
-
-    private fun saveAmneziaMode(on: Boolean) {
+    fun onToggleAmnezia() {
         saveSettings(
             uiState.value.settings.copy(
-                isAmneziaEnabled = on
-            )
+                isKernelEnabled = false,
+                isAmneziaEnabled = !uiState.value.settings.isAmneziaEnabled,
+            ),
         )
     }
 
@@ -182,8 +176,12 @@ constructor(
             try {
                 rootShell.start()
                 Timber.i("Root shell accepted!")
-                saveKernelMode(on = true)
-                saveAmneziaMode(false)
+                saveSettings(
+                    uiState.value.settings.copy(
+                        isKernelEnabled = true,
+                        isAmneziaEnabled = false,
+                    ),
+                )
 
             } catch (e: RootShell.RootShellException) {
                 Timber.e(e)
