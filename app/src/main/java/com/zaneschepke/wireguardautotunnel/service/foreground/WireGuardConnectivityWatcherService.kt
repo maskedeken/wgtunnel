@@ -225,7 +225,7 @@ class WireGuardConnectivityWatcherService : ForegroundService() {
                             val host = if (peer.endpoint.isPresent &&
                                 peer.endpoint.get().resolved.isPresent)
                                 peer.endpoint.get().resolved.get().host
-                            else Constants.BACKUP_PING_HOST
+                            else Constants.DEFAULT_PING_IP
                             Timber.i("Checking reachability of: $host")
                             val reachable = InetAddress.getByName(host)
                                 .isReachable(Constants.PING_TIMEOUT.toInt())
@@ -236,7 +236,7 @@ class WireGuardConnectivityWatcherService : ForegroundService() {
                             Timber.i("Restarting VPN for ping failure")
                             serviceManager.stopVpnServiceForeground(this)
                             delay(Constants.VPN_RESTART_DELAY)
-                            serviceManager.startVpnServiceForeground(this)
+                            serviceManager.startVpnServiceForeground(this, it.id)
                             delay(Constants.PING_COOLDOWN)
                         }
                     }
@@ -267,7 +267,6 @@ class WireGuardConnectivityWatcherService : ForegroundService() {
         vpnService.vpnState.collect {
             networkEventsFlow.value =
                 networkEventsFlow.value.copy(
-                    vpnStatus = it.status,
                     config = it.tunnelConfig,
                 )
         }
@@ -352,6 +351,10 @@ class WireGuardConnectivityWatcherService : ForegroundService() {
         return appDataRepository.tunnels.findByTunnelNetworksName(ssid).firstOrNull()
     }
 
+    private fun isTunnelDown() : Boolean {
+        return vpnService.vpnState.value.status == TunnelState.DOWN
+    }
+
     private suspend fun manageVpn() {
         networkEventsFlow.collectLatest { watcherState ->
             val autoTunnel = "Auto-tunnel watcher"
@@ -361,18 +364,18 @@ class WireGuardConnectivityWatcherService : ForegroundService() {
                 when {
                     watcherState.isEthernetConditionMet() -> {
                         Timber.i("$autoTunnel - tunnel on on ethernet condition met")
-                        serviceManager.startVpnServiceForeground(this)
+                        if(isTunnelDown()) serviceManager.startVpnServiceForeground(this)
                     }
 
                     watcherState.isMobileDataConditionMet() -> {
                         Timber.i("$autoTunnel - tunnel on on mobile data condition met")
-                        serviceManager.startVpnServiceForeground(this, getMobileDataTunnel()?.id)
+                        if(isTunnelDown()) serviceManager.startVpnServiceForeground(this, getMobileDataTunnel()?.id)
                     }
 
-                    watcherState.isTunnelNotMobileDataPreferredConditionMet() -> {
+                    watcherState.isTunnelOnMobileDataPreferredConditionMet() -> {
                         getMobileDataTunnel()?.let {
                             Timber.i("$autoTunnel - tunnel connected on mobile data is not preferred condition met, switching to preferred")
-                            serviceManager.startVpnServiceForeground(
+                            if(isTunnelDown()) serviceManager.startVpnServiceForeground(
                                 this,
                                 getMobileDataTunnel()?.id,
                             )
@@ -381,25 +384,25 @@ class WireGuardConnectivityWatcherService : ForegroundService() {
 
                     watcherState.isTunnelOffOnMobileDataConditionMet() -> {
                         Timber.i("$autoTunnel - tunnel off on mobile data met, turning vpn off")
-                        serviceManager.stopVpnServiceForeground(this)
+                        if(!isTunnelDown()) serviceManager.stopVpnServiceForeground(this)
                     }
 
                     watcherState.isTunnelNotWifiNamePreferredMet(watcherState.currentNetworkSSID) -> {
                         Timber.i("$autoTunnel - tunnel on ssid not associated with current tunnel condition met")
                         getSsidTunnel(watcherState.currentNetworkSSID)?.let {
                             Timber.i("Found tunnel associated with this SSID, bringing tunnel up")
-                            serviceManager.startVpnServiceForeground(this, it.id)
+                            if(isTunnelDown()) serviceManager.startVpnServiceForeground(this, it.id)
                         } ?: suspend {
                             Timber.i("No tunnel associated with this SSID, using defaults")
                             if (appDataRepository.getPrimaryOrFirstTunnel()?.name != vpnService.name) {
-                                serviceManager.startVpnServiceForeground(this)
+                                if(isTunnelDown()) serviceManager.startVpnServiceForeground(this)
                             }
                         }.invoke()
                     }
 
                     watcherState.isUntrustedWifiConditionMet() -> {
                         Timber.i("$autoTunnel - tunnel on untrusted wifi condition met")
-                        serviceManager.startVpnServiceForeground(
+                        if(isTunnelDown()) serviceManager.startVpnServiceForeground(
                             this,
                             getSsidTunnel(watcherState.currentNetworkSSID)?.id,
                         )
@@ -407,17 +410,17 @@ class WireGuardConnectivityWatcherService : ForegroundService() {
 
                     watcherState.isTrustedWifiConditionMet() -> {
                         Timber.i("$autoTunnel - tunnel off on trusted wifi condition met, turning vpn off")
-                        serviceManager.stopVpnServiceForeground(this)
+                        if(!isTunnelDown()) serviceManager.stopVpnServiceForeground(this)
                     }
 
                     watcherState.isTunnelOffOnWifiConditionMet() -> {
                         Timber.i("$autoTunnel - tunnel off on wifi condition met, turning vpn off")
-                        serviceManager.stopVpnServiceForeground(this)
+                        if(!isTunnelDown()) serviceManager.stopVpnServiceForeground(this)
                     }
 
                     watcherState.isTunnelOffOnNoConnectivityMet() -> {
                         Timber.i("$autoTunnel - tunnel off on no connectivity met, turning vpn off")
-                        serviceManager.stopVpnServiceForeground(this)
+                        if(!isTunnelDown()) serviceManager.stopVpnServiceForeground(this)
                     }
 
                     else -> {
