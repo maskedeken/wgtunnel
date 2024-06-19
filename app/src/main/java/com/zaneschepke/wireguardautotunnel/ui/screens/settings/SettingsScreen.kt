@@ -84,7 +84,6 @@ import com.zaneschepke.wireguardautotunnel.ui.common.text.SectionTitle
 import com.zaneschepke.wireguardautotunnel.util.getMessage
 import kotlinx.coroutines.launch
 import timber.log.Timber
-import xyz.teamgravity.pin_lock_compose.PinManager
 import java.io.File
 
 @OptIn(
@@ -103,7 +102,7 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
     val interactionSource = remember { MutableInteractionSource() }
-    val pinExists = remember { mutableStateOf(PinManager.pinExists()) }
+    //val pinExists = remember { mutableStateOf(PinManager.pinExists()) }
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val kernelSupport by viewModel.kernelSupport.collectAsStateWithLifecycle()
@@ -653,15 +652,24 @@ fun SettingsScreen(
                         )
                     }
                     ConfigurationToggle(
-                        stringResource(R.string.enable_app_lock),
+                        stringResource(R.string.restart_at_boot),
                         enabled = true,
-                        checked = pinExists.value,
+                        checked = uiState.settings.isRestoreOnBootEnabled,
                         padding = screenPadding,
                         onCheckChanged = {
-                            if (pinExists.value) {
-                                PinManager.clearPin()
-                                pinExists.value = PinManager.pinExists()
+                            viewModel.onToggleRestartAtBoot()
+                        },
+                    )
+                    ConfigurationToggle(
+                        stringResource(R.string.enable_app_lock),
+                        enabled = true,
+                        checked = uiState.isPinLockEnabled,
+                        padding = screenPadding,
+                        onCheckChanged = {
+                            if (uiState.isPinLockEnabled) {
+                                viewModel.onPinLockDisabled()
                             } else {
+                                viewModel.onPinLockEnabled()
                                 navController.navigate(Screen.Lock.route)
                             }
                         },
