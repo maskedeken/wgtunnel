@@ -3,13 +3,13 @@ import org.gradle.api.invocation.Gradle
 import java.io.File
 import java.util.Properties
 
-private fun getCurrentFlavor(gradle: Gradle): String {
+fun Project.getCurrentFlavor(): String {
     val taskRequestsStr = gradle.startParameter.taskRequests.toString()
     val pattern: java.util.regex.Pattern =
-        if (taskRequestsStr.contains("assemble")) {
-            java.util.regex.Pattern.compile("assemble(\\w+)(Release|Debug)")
+        if (taskRequestsStr.contains(":app:assemble")) {
+            java.util.regex.Pattern.compile(":app:assemble(\\w+)(Release|Debug)")
         } else {
-            java.util.regex.Pattern.compile("bundle(\\w+)(Release|Debug)")
+            java.util.regex.Pattern.compile(":app:bundle(\\w+)(Release|Debug)")
         }
 
     val matcher = pattern.matcher(taskRequestsStr)
@@ -23,8 +23,15 @@ private fun getCurrentFlavor(gradle: Gradle): String {
     return flavor
 }
 
+fun Project.isNightlyBuild(): Boolean {
+    val taskRequestsStr = gradle.startParameter.taskRequests[0].toString()
+    return taskRequestsStr.lowercase().contains(Constants.NIGHTLY).also {
+        project.logger.lifecycle("Nightly build: $it")
+    }
+}
+
 fun getLocalProperty(key: String, file: String = "local.properties"): String? {
-    val properties = java.util.Properties()
+    val properties = Properties()
     val localProperties = File(file)
     if (localProperties.isFile) {
         java.io.InputStreamReader(java.io.FileInputStream(localProperties), Charsets.UTF_8)
@@ -35,22 +42,8 @@ fun getLocalProperty(key: String, file: String = "local.properties"): String? {
     return properties.getProperty(key)
 }
 
-fun Project.isGeneralFlavor(gradle: Gradle): Boolean {
-    return getCurrentFlavor(gradle) == "general"
-}
 
-fun Project.isReleaseBuild(): Boolean {
-    return (gradle.startParameter.taskNames.size > 0 &&
-        gradle.startParameter.taskNames[0].contains(
-            "Release",
-        ))
-}
-
-fun Project.isNightlyBuild(): Boolean {
-    return gradle.startParameter.taskNames.contains("assembleFdroidNightly")
-}
-
-fun Project.getSigningProperties() : Properties {
+fun Project.getSigningProperties(): Properties {
     return Properties().apply {
         // created local file for signing details
         try {
@@ -61,7 +54,7 @@ fun Project.getSigningProperties() : Properties {
     }
 }
 
-fun Project.getStoreFile() : File {
+fun Project.getStoreFile(): File {
     return file(
         System.getenv()
             .getOrDefault(
@@ -71,17 +64,13 @@ fun Project.getStoreFile() : File {
     )
 }
 
-fun Project.getSigningProperty(property: String) : String {
+fun Project.getSigningProperty(property: String): String {
     // try to get secrets from env first for pipeline build, then properties file for local
     return System.getenv()
         .getOrDefault(
             property,
             getSigningProperties().getProperty(property),
         )
-}
-
-fun Project.signingConfigName() : String {
-    return if(getSigningProperty(Constants.KEY_PASS_VAR) == "") Constants.DEBUG else Constants.RELEASE
 }
 
 
